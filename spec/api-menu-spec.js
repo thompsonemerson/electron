@@ -403,6 +403,10 @@ describe('menu module', function () {
       assert.equal(item.label, 'Close')
       assert.equal(item.accelerator, 'CommandOrControl+W')
 
+      var item = new MenuItem({role: 'close'})
+      assert.equal(item.label, 'Close')
+      assert.equal(item.accelerator, undefined)
+
       var item = new MenuItem({role: 'close', label: 'Other'})
       item.setUseDefaultRoleAccelerator()
       assert.equal(item.label, 'Other')
