@@ -7,7 +7,6 @@ const path = require('path')
 const {remote} = require('electron')
 
 const {app, BrowserWindow, ipcMain} = remote
-const isCI = remote.getGlobal('isCi')
 
 describe('electron module', function () {
   it('does not expose internal modules to require', function () {
@@ -44,7 +43,6 @@ describe('electron module', function () {
       window.loadURL('file://' + path.join(__dirname, 'fixtures', 'api', 'electron-module-app', 'index.html'))
     })
   })
-
 })
 
 describe('app module', function () {
@@ -111,12 +109,10 @@ describe('app module', function () {
 
   describe('app.relaunch', function () {
     let server = null
-    const socketPath = process.platform === 'win32' ?
-      '\\\\.\\pipe\\electron-app-relaunch' :
-      '/tmp/electron-app-relaunch'
+    const socketPath = process.platform === 'win32' ? '\\\\.\\pipe\\electron-app-relaunch' : '/tmp/electron-app-relaunch'
 
     beforeEach(function (done) {
-      fs.unlink(socketPath, (error) => {
+      fs.unlink(socketPath, () => {
         server = net.createServer()
         server.listen(socketPath)
         done()
@@ -128,7 +124,7 @@ describe('app module', function () {
         if (process.platform === 'win32') {
           done()
         } else {
-          fs.unlink(socketPath, (error) => {
+          fs.unlink(socketPath, () => {
             done()
           })
         }
@@ -164,14 +160,13 @@ describe('app module', function () {
     }
 
     it('sets the current activity', function () {
-      app.setUserActivity('com.electron.testActivity', {testData: '123'});
-      assert.equal(app.getCurrentActivityType(), 'com.electron.testActivity');
+      app.setUserActivity('com.electron.testActivity', {testData: '123'})
+      assert.equal(app.getCurrentActivityType(), 'com.electron.testActivity')
     })
   })
 
   describe('app.importCertificate', function () {
-    if (process.platform !== 'linux')
-      return
+    if (process.platform !== 'linux') return
 
     this.timeout(5000)
 
@@ -190,8 +185,8 @@ describe('app module', function () {
 
     var server = https.createServer(options, function (req, res) {
       if (req.client.authorized) {
-        res.writeHead(200);
-        res.end('authorized');
+        res.writeHead(200)
+        res.end('authorized')
       }
     })
 
@@ -287,6 +282,39 @@ describe('app module', function () {
       w = new BrowserWindow({
         show: false
       })
+    })
+  })
+
+  describe('app.launcher API', function () {
+    it('should be available on linux', function () {
+      if (process.platform !== 'linux') {
+        assert.equal(app.launcher, undefined)
+      } else {
+        assert.notEqual(app.launcher, undefined)
+      }
+    })
+
+    it('should be possible to set a badge count on supported environments', function () {
+      if (process.platform === 'linux' &&
+          app.launcher.isCounterBadgeAvailable()) {
+        app.launcher.setBadgeCount(42)
+        assert.equal(app.launcher.getBadgeCount(), 42)
+      }
+    })
+
+    it('should be possible to set a badge count on unity', function () {
+      if (process.platform === 'linux' &&
+          app.launcher.isUnityRunning()) {
+        assert.equal(app.launcher.isCounterBadgeAvailable(), true)
+      }
+    })
+
+    it('should not be possible to set a badge counter on unsupported environments', function () {
+      if (process.platform === 'linux' &&
+          !app.launcher.isCounterBadgeAvailable()) {
+        app.launcher.setBadgeCount(42)
+        assert.equal(app.launcher.getBadgeCount(), 0)
+      }
     })
   })
 })
