@@ -12,8 +12,8 @@
 #include "ui/gfx/image/image.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/gfx/geometry/rect.h"
-#include "ui/gfx/screen.h"
-#include "ui/gfx/win/dpi.h"
+#include "ui/display/screen.h"
+#include "ui/display/win/screen_win.h"
 #include "ui/views/controls/menu/menu_runner.h"
 
 namespace atom {
@@ -132,7 +132,7 @@ void NotifyIcon::DisplayBalloon(HICON icon,
 }
 
 void NotifyIcon::PopUpContextMenu(const gfx::Point& pos,
-                                  ui::SimpleMenuModel* menu_model) {
+                                  AtomMenuModel* menu_model) {
   // Returns if context menu isn't set.
   if (menu_model == nullptr && menu_model_ == nullptr)
     return;
@@ -145,7 +145,7 @@ void NotifyIcon::PopUpContextMenu(const gfx::Point& pos,
   // Show menu at mouse's position by default.
   gfx::Rect rect(pos, gfx::Size());
   if (pos.IsOrigin())
-    rect.set_origin(gfx::Screen::GetScreen()->GetCursorScreenPoint());
+    rect.set_origin(display::Screen::GetScreen()->GetCursorScreenPoint());
 
   views::MenuRunner menu_runner(
       menu_model != nullptr ? menu_model : menu_model_,
@@ -154,7 +154,7 @@ void NotifyIcon::PopUpContextMenu(const gfx::Point& pos,
       NULL, NULL, rect, views::MENU_ANCHOR_TOPLEFT, ui::MENU_SOURCE_MOUSE));
 }
 
-void NotifyIcon::SetContextMenu(ui::SimpleMenuModel* menu_model) {
+void NotifyIcon::SetContextMenu(AtomMenuModel* menu_model) {
   menu_model_ = menu_model;
 }
 
@@ -167,7 +167,7 @@ gfx::Rect NotifyIcon::GetBounds() {
 
   RECT rect = { 0 };
   Shell_NotifyIconGetRect(&icon_id, &rect);
-  return gfx::win::ScreenToDIPRect(gfx::Rect(rect));
+  return display::win::ScreenWin::ScreenToDIPRect(window_, gfx::Rect(rect));
 }
 
 void NotifyIcon::InitIconData(NOTIFYICONDATA* icon_data) {

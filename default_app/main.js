@@ -91,14 +91,29 @@ app.once('ready', () => {
           }
         },
         {
-          role: 'togglefullscreen'
-        },
-        {
           label: 'Toggle Developer Tools',
           accelerator: process.platform === 'darwin' ? 'Alt+Command+I' : 'Ctrl+Shift+I',
           click (item, focusedWindow) {
             if (focusedWindow) focusedWindow.toggleDevTools()
           }
+        },
+        {
+          type: 'separator'
+        },
+        {
+          role: 'resetzoom'
+        },
+        {
+          role: 'zoomin'
+        },
+        {
+          role: 'zoomout'
+        },
+        {
+          type: 'separator'
+        },
+        {
+          role: 'togglefullscreen'
         }
       ]
     },
@@ -180,6 +195,22 @@ app.once('ready', () => {
         }
       ]
     })
+    template[1].submenu.push(
+      {
+        type: 'separator'
+      },
+      {
+        label: 'Speech',
+        submenu: [
+          {
+            role: 'startspeaking'
+          },
+          {
+            role: 'stopspeaking'
+          }
+        ]
+      }
+    )
     template[3].submenu = [
       {
         role: 'close'
@@ -197,9 +228,7 @@ app.once('ready', () => {
         role: 'front'
       }
     ]
-  }
-
-  if (process.platform === 'win32') {
+  } else {
     template.unshift({
       label: 'File',
       submenu: [
@@ -229,7 +258,7 @@ function loadApplicationPackage (packagePath) {
     if (fs.existsSync(packageJsonPath)) {
       let packageJson
       try {
-        packageJson = JSON.parse(fs.readFileSync(packageJsonPath))
+        packageJson = require(packageJsonPath)
       } catch (e) {
         showErrorMessage(`Unable to parse ${packageJsonPath}\n\n${e.message}`)
         return

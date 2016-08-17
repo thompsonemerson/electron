@@ -16,7 +16,9 @@
 #include "atom/common/native_mate_converters/string16_converter.h"
 #include "atom/common/node_includes.h"
 #include "atom/common/options_switches.h"
+#include "base/command_line.h"
 #include "content/public/browser/render_process_host.h"
+#include "content/public/common/content_switches.h"
 #include "native_mate/constructor.h"
 #include "native_mate/dictionary.h"
 #include "ui/gfx/geometry/rect.h"
@@ -55,15 +57,6 @@ namespace api {
 
 namespace {
 
-void OnCapturePageDone(
-    v8::Isolate* isolate,
-    const base::Callback<void(const gfx::Image&)>& callback,
-    const SkBitmap& bitmap) {
-  v8::Locker locker(isolate);
-  v8::HandleScope handle_scope(isolate);
-  callback.Run(gfx::Image::CreateFrom1xBitmap(bitmap));
-}
-
 // Converts binary data to Buffer.
 v8::Local<v8::Value> ToBuffer(v8::Isolate* isolate, void* val, int size) {
   auto buffer = node::Buffer::Copy(isolate, static_cast<char*>(val), size);
@@ -76,7 +69,8 @@ v8::Local<v8::Value> ToBuffer(v8::Isolate* isolate, void* val, int size) {
 }  // namespace
 
 
-Window::Window(v8::Isolate* isolate, const mate::Dictionary& options) {
+Window::Window(v8::Isolate* isolate, v8::Local<v8::Object> wrapper,
+               const mate::Dictionary& options) {
   // Use options.webPreferences to create WebContents.
   mate::Dictionary web_preferences = mate::Dictionary::CreateEmpty(isolate);
   options.Get(options::kWebPreferences, &web_preferences);
@@ -85,6 +79,10 @@ Window::Window(v8::Isolate* isolate, const mate::Dictionary& options) {
   v8::Local<v8::Value> value;
   if (options.Get(options::kBackgroundColor, &value))
     web_preferences.Set(options::kBackgroundColor, value);
+
+  v8::Local<v8::Value> transparent;
+  if (options.Get("transparent", &transparent))
+    web_preferences.Set("transparent", transparent);
 
   // Creates the WebContents used by BrowserWindow.
   auto web_contents = WebContents::Create(isolate, web_preferences);
@@ -116,7 +114,14 @@ Window::Window(v8::Isolate* isolate, const mate::Dictionary& options) {
 
   window_->InitFromOptions(options);
   window_->AddObserver(this);
+
+  InitWith(isolate, wrapper);
   AttachAsUserData(window_.get());
+
+  // We can only append this window to parent window's child windows after this
+  // window's JS wrapper gets initialized.
+  if (!parent.IsEmpty())
+    parent->child_windows_.Set(isolate, ID(), wrapper);
 }
 
 Window::~Window() {
@@ -126,17 +131,6 @@ Window::~Window() {
   // Destroy the native window in next tick because the native code might be
   // iterating all windows.
   base::MessageLoop::current()->DeleteSoon(FROM_HERE, window_.release());
-}
-
-void Window::AfterInit(v8::Isolate* isolate) {
-  mate::TrackableObject<Window>::AfterInit(isolate);
-
-  // We can only append this window to parent window's child windows after this
-  // window's JS wrapper gets initialized.
-  mate::Handle<Window> parent;
-  if (!parent_window_.IsEmpty() &&
-      mate::ConvertFromV8(isolate, GetParentWindow(), &parent))
-    parent->child_windows_.Set(isolate, ID(), GetWrapper());
 }
 
 void Window::WillCloseWindow(bool* prevent_default) {
@@ -271,10 +265,9 @@ void Window::OnWindowMessage(UINT message, WPARAM w_param, LPARAM l_param) {
 #endif
 
 // static
-mate::WrappableBase* Window::New(v8::Isolate* isolate, mate::Arguments* args) {
+mate::WrappableBase* Window::New(mate::Arguments* args) {
   if (!Browser::Get()->is_ready()) {
-    isolate->ThrowException(v8::Exception::Error(mate::StringToV8(
-        isolate, "Cannot create BrowserWindow before app is ready")));
+    args->ThrowError("Cannot create BrowserWindow before app is ready");
     return nullptr;
   }
 
@@ -285,10 +278,10 @@ mate::WrappableBase* Window::New(v8::Isolate* isolate, mate::Arguments* args) {
 
   mate::Dictionary options;
   if (!(args->Length() == 1 && args->GetNext(&options))) {
-    options = mate::Dictionary::CreateEmpty(isolate);
+    options = mate::Dictionary::CreateEmpty(args->isolate());
   }
 
-  return new Window(isolate, options);
+  return new Window(args->isolate(), args->GetThis(), options);
 }
 
 void Window::Close() {
@@ -371,6 +364,16 @@ void Window::SetBounds(const gfx::Rect& bounds, mate::Arguments* args) {
 
 gfx::Rect Window::GetBounds() {
   return window_->GetBounds();
+}
+
+void Window::SetContentBounds(const gfx::Rect& bounds, mate::Arguments* args) {
+  bool animate = false;
+  args->GetNext(&animate);
+  window_->SetContentBounds(bounds, animate);
+}
+
+gfx::Rect Window::GetContentBounds() {
+  return window_->GetContentBounds();
 }
 
 void Window::SetSize(int width, int height, mate::Arguments* args) {
@@ -581,23 +584,12 @@ void Window::SetFocusable(bool focusable) {
   return window_->SetFocusable(focusable);
 }
 
-void Window::CapturePage(mate::Arguments* args) {
-  gfx::Rect rect;
-  base::Callback<void(const gfx::Image&)> callback;
+void Window::SetProgressBar(double progress, mate::Arguments* args) {
+  mate::Dictionary options;
+  std::string mode;
+  args->GetNext(&options) && options.Get("mode", &mode);
 
-  if (!(args->Length() == 1 && args->GetNext(&callback)) &&
-      !(args->Length() == 2 && args->GetNext(&rect)
-                            && args->GetNext(&callback))) {
-    args->ThrowError();
-    return;
-  }
-
-  window_->CapturePage(
-      rect, base::Bind(&OnCapturePageDone, args->isolate(), callback));
-}
-
-void Window::SetProgressBar(double progress) {
-  window_->SetProgressBar(progress);
+  window_->SetProgressBar(progress, mode);
 }
 
 void Window::SetOverlayIcon(const gfx::Image& overlay,
@@ -672,6 +664,18 @@ bool Window::IsWindowMessageHooked(UINT message) {
 
 void Window::UnhookAllWindowMessages() {
   messages_callback_map_.clear();
+}
+
+bool Window::SetThumbnailClip(const gfx::Rect& region) {
+  auto window = static_cast<NativeWindowViews*>(window_.get());
+  return window->taskbar_host().SetThumbnailClip(
+      window_->GetAcceleratedWidget(), region);
+}
+
+bool Window::SetThumbnailToolTip(const std::string& tooltip) {
+  auto window = static_cast<NativeWindowViews*>(window_.get());
+  return window->taskbar_host().SetThumbnailToolTip(
+      window_->GetAcceleratedWidget(), tooltip);
 }
 #endif
 
@@ -768,8 +772,9 @@ void Window::RemoveFromParentChildWindows() {
 
 // static
 void Window::BuildPrototype(v8::Isolate* isolate,
-                            v8::Local<v8::ObjectTemplate> prototype) {
-  mate::ObjectTemplateBuilder(isolate, prototype)
+                            v8::Local<v8::FunctionTemplate> prototype) {
+  prototype->SetClassName(mate::StringToV8(isolate, "BrowserWindow"));
+  mate::ObjectTemplateBuilder(isolate, prototype->PrototypeTemplate())
       .MakeDestroyable()
       .SetMethod("close", &Window::Close)
       .SetMethod("focus", &Window::Focus)
@@ -800,6 +805,8 @@ void Window::BuildPrototype(v8::Isolate* isolate,
       .SetMethod("setBounds", &Window::SetBounds)
       .SetMethod("getSize", &Window::GetSize)
       .SetMethod("setSize", &Window::SetSize)
+      .SetMethod("getContentBounds", &Window::GetContentBounds)
+      .SetMethod("setContentBounds", &Window::SetContentBounds)
       .SetMethod("getContentSize", &Window::GetContentSize)
       .SetMethod("setContentSize", &Window::SetContentSize)
       .SetMethod("setMinimumSize", &Window::SetMinimumSize)
@@ -843,7 +850,6 @@ void Window::BuildPrototype(v8::Isolate* isolate,
       .SetMethod("focusOnWebView", &Window::FocusOnWebView)
       .SetMethod("blurWebView", &Window::BlurWebView)
       .SetMethod("isWebViewFocused", &Window::IsWebViewFocused)
-      .SetMethod("capturePage", &Window::CapturePage)
       .SetMethod("setProgressBar", &Window::SetProgressBar)
       .SetMethod("setOverlayIcon", &Window::SetOverlayIcon)
       .SetMethod("setThumbarButtons", &Window::SetThumbarButtons)
@@ -861,6 +867,8 @@ void Window::BuildPrototype(v8::Isolate* isolate,
       .SetMethod("isWindowMessageHooked", &Window::IsWindowMessageHooked)
       .SetMethod("unhookWindowMessage", &Window::UnhookWindowMessage)
       .SetMethod("unhookAllWindowMessages", &Window::UnhookAllWindowMessages)
+      .SetMethod("setThumbnailClip", &Window::SetThumbnailClip)
+      .SetMethod("setThumbnailToolTip", &Window::SetThumbnailToolTip)
 #endif
 #if defined(TOOLKIT_VIEWS)
       .SetMethod("setIcon", &Window::SetIcon)
@@ -891,9 +899,10 @@ using atom::api::Window;
 void Initialize(v8::Local<v8::Object> exports, v8::Local<v8::Value> unused,
                 v8::Local<v8::Context> context, void* priv) {
   v8::Isolate* isolate = context->GetIsolate();
-  v8::Local<v8::Function> constructor = mate::CreateConstructor<Window>(
-      isolate, "BrowserWindow", base::Bind(&Window::New));
-  mate::Dictionary browser_window(isolate, constructor);
+  Window::SetConstructor(isolate, base::Bind(&Window::New));
+
+  mate::Dictionary browser_window(
+      isolate, Window::GetConstructor(isolate)->GetFunction());
   browser_window.SetMethod("fromId",
                            &mate::TrackableObject<Window>::FromWeakMapID);
   browser_window.SetMethod("getAllWindows",

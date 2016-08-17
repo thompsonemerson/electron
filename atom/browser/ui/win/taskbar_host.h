@@ -13,6 +13,7 @@
 
 #include "base/callback.h"
 #include "base/win/scoped_comptr.h"
+#include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/image/image.h"
 
 namespace atom {
@@ -34,11 +35,17 @@ class TaskbarHost {
       HWND window, const std::vector<ThumbarButton>& buttons);
 
   // Set the progress state in taskbar.
-  bool SetProgressBar(HWND window, double value);
+  bool SetProgressBar(HWND window, double value, const std::string& mode);
 
   // Set the overlay icon in taskbar.
   bool SetOverlayIcon(
       HWND window, const gfx::Image& overlay, const std::string& text);
+
+  // Set the region of the window to show as a thumbnail in taskbar.
+  bool SetThumbnailClip(HWND window, const gfx::Rect& region);
+
+  // Set the tooltip for the thumbnail in taskbar.
+  bool SetThumbnailToolTip(HWND window, const std::string& tooltip);
 
   // Called by the window that there is a button in thumbar clicked.
   bool HandleThumbarButtonEvent(int button_id);

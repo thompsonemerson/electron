@@ -48,6 +48,7 @@ class WebContents : public mate::TrackableObject<WebContents>,
     BROWSER_WINDOW,  // Used by BrowserWindow.
     REMOTE,  // Thin wrap around an existing WebContents.
     WEB_VIEW,  // Used by <webview>.
+    OFF_SCREEN,  // Used for offscreen rendering
   };
 
   // For node.js callback function type: function(error, buffer)
@@ -63,7 +64,7 @@ class WebContents : public mate::TrackableObject<WebContents>,
       v8::Isolate* isolate, const mate::Dictionary& options);
 
   static void BuildPrototype(v8::Isolate* isolate,
-                             v8::Local<v8::ObjectTemplate> prototype);
+                             v8::Local<v8::FunctionTemplate> prototype);
 
   int GetID() const;
   Type GetType() const;
@@ -125,9 +126,11 @@ class WebContents : public mate::TrackableObject<WebContents>,
   uint32_t FindInPage(mate::Arguments* args);
   void StopFindInPage(content::StopFindAction action);
   void ShowDefinitionForSelection();
+  void CopyImageAt(int x, int y);
 
   // Focus.
   void Focus();
+  bool IsFocused() const;
   void TabTraverse(bool reverse);
 
   // Send messages to browser.
@@ -142,9 +145,25 @@ class WebContents : public mate::TrackableObject<WebContents>,
   void BeginFrameSubscription(mate::Arguments* args);
   void EndFrameSubscription();
 
+  // Dragging native items.
+  void StartDrag(const mate::Dictionary& item, mate::Arguments* args);
+
+  // Captures the page with |rect|, |callback| would be called when capturing is
+  // done.
+  void CapturePage(mate::Arguments* args);
+
   // Methods for creating <webview>.
   void SetSize(const SetSizeParams& params);
   bool IsGuest() const;
+
+  // Methods for offscreen rendering
+  bool IsOffScreen() const;
+  void OnPaint(const gfx::Rect& dirty_rect, const SkBitmap& bitmap);
+  void StartPainting();
+  void StopPainting();
+  bool IsPainting() const;
+  void SetFrameRate(int frame_rate);
+  int GetFrameRate() const;
 
   // Callback triggered on permission response.
   void OnEnterFullscreenModeForTab(content::WebContents* source,
@@ -237,11 +256,6 @@ class WebContents : public mate::TrackableObject<WebContents>,
                    int error_code,
                    const base::string16& error_description,
                    bool was_ignored_by_handler) override;
-  void DidFailProvisionalLoad(content::RenderFrameHost* render_frame_host,
-                              const GURL& validated_url,
-                              int error_code,
-                              const base::string16& error_description,
-                              bool was_ignored_by_handler) override;
   void DidStartLoading() override;
   void DidStopLoading() override;
   void DidGetResourceResponseStart(
@@ -249,9 +263,8 @@ class WebContents : public mate::TrackableObject<WebContents>,
   void DidGetRedirectForResourceRequest(
       content::RenderFrameHost* render_frame_host,
       const content::ResourceRedirectDetails& details) override;
-  void DidNavigateMainFrame(
-      const content::LoadCommittedDetails& details,
-      const content::FrameNavigateParams& params) override;
+  void DidFinishNavigation(
+      content::NavigationHandle* navigation_handle) override;
   bool OnMessageReceived(const IPC::Message& message) override;
   void WebContentsDestroyed() override;
   void NavigationEntryCommitted(

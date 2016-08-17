@@ -6,13 +6,14 @@
 #define ATOM_BROWSER_NATIVE_WINDOW_H_
 
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
 #include "atom/browser/native_window_observer.h"
 #include "atom/browser/ui/accelerator_util.h"
+#include "atom/browser/ui/atom_menu_model.h"
 #include "base/cancelable_callback.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
 #include "base/supports_user_data.h"
@@ -43,10 +44,6 @@ namespace mate {
 class Dictionary;
 }
 
-namespace ui {
-class MenuModel;
-}
-
 namespace atom {
 
 struct DraggableRegion;
@@ -54,28 +51,7 @@ struct DraggableRegion;
 class NativeWindow : public base::SupportsUserData,
                      public content::WebContentsObserver {
  public:
-  using CapturePageCallback = base::Callback<void(const SkBitmap& bitmap)>;
-
-  class DialogScope {
-   public:
-    explicit DialogScope(NativeWindow* window)
-        : window_(window) {
-      if (window_ != NULL)
-        window_->set_has_dialog_attached(true);
-    }
-
-    ~DialogScope() {
-      if (window_ != NULL)
-        window_->set_has_dialog_attached(false);
-    }
-
-   private:
-    NativeWindow* window_;
-
-    DISALLOW_COPY_AND_ASSIGN(DialogScope);
-  };
-
-  virtual ~NativeWindow();
+  ~NativeWindow() override;
 
   // Create window with existing WebContents, the caller is responsible for
   // managing the window's live.
@@ -115,6 +91,8 @@ class NativeWindow : public base::SupportsUserData,
   virtual gfx::Point GetPosition();
   virtual void SetContentSize(const gfx::Size& size, bool animate = false);
   virtual gfx::Size GetContentSize();
+  virtual void SetContentBounds(const gfx::Rect& bounds, bool animate = false);
+  virtual gfx::Rect GetContentBounds();
   virtual void SetSizeConstraints(
       const extensions::SizeConstraints& size_constraints);
   virtual extensions::SizeConstraints GetSizeConstraints();
@@ -159,14 +137,14 @@ class NativeWindow : public base::SupportsUserData,
   virtual void SetIgnoreMouseEvents(bool ignore) = 0;
   virtual void SetContentProtection(bool enable) = 0;
   virtual void SetFocusable(bool focusable);
-  virtual void SetMenu(ui::MenuModel* menu);
-  virtual bool HasModalDialog();
+  virtual void SetMenu(AtomMenuModel* menu);
   virtual void SetParentWindow(NativeWindow* parent);
   virtual gfx::NativeWindow GetNativeWindow() = 0;
   virtual gfx::AcceleratedWidget GetAcceleratedWidget() = 0;
 
   // Taskbar/Dock APIs.
-  virtual void SetProgressBar(double progress) = 0;
+  virtual void SetProgressBar(double progress,
+                              const std::string& mode) = 0;
   virtual void SetOverlayIcon(const gfx::Image& overlay,
                               const std::string& description) = 0;
 
@@ -178,11 +156,6 @@ class NativeWindow : public base::SupportsUserData,
   virtual void FocusOnWebView();
   virtual void BlurWebView();
   virtual bool IsWebViewFocused();
-
-  // Captures the page with |rect|, |callback| would be called when capturing is
-  // done.
-  virtual void CapturePage(const gfx::Rect& rect,
-                           const CapturePageCallback& callback);
 
   // Toggle the menu bar.
   virtual void SetAutoHideMenuBar(bool auto_hide);
@@ -255,10 +228,6 @@ class NativeWindow : public base::SupportsUserData,
   SkRegion* draggable_region() const { return draggable_region_.get(); }
   bool enable_larger_than_screen() const { return enable_larger_than_screen_; }
 
-  void set_has_dialog_attached(bool has_dialog_attached) {
-    has_dialog_attached_ = has_dialog_attached;
-  }
-
   NativeWindow* parent() const { return parent_; }
   bool is_modal() const { return is_modal_; }
 
@@ -272,9 +241,9 @@ class NativeWindow : public base::SupportsUserData,
   std::unique_ptr<SkRegion> DraggableRegionsToSkRegion(
       const std::vector<DraggableRegion>& regions);
 
-  // Converts between content size to window size.
-  virtual gfx::Size ContentSizeToWindowSize(const gfx::Size& size) = 0;
-  virtual gfx::Size WindowSizeToContentSize(const gfx::Size& size) = 0;
+  // Converts between content bounds and window bounds.
+  virtual gfx::Rect ContentBoundsToWindowBounds(const gfx::Rect& bounds) = 0;
+  virtual gfx::Rect WindowBoundsToContentBounds(const gfx::Rect& bounds) = 0;
 
   // Called when the window needs to update its draggable region.
   virtual void UpdateDraggableRegions(
@@ -296,11 +265,6 @@ class NativeWindow : public base::SupportsUserData,
   // Dispatch ReadyToShow event to observers.
   void NotifyReadyToShow();
 
-  // Called when CapturePage has done.
-  void OnCapturePageDone(const CapturePageCallback& callback,
-                         const SkBitmap& bitmap,
-                         content::ReadbackResponse response);
-
   // Whether window has standard frame.
   bool has_frame_;
 
@@ -319,9 +283,6 @@ class NativeWindow : public base::SupportsUserData,
 
   // The windows has been closed.
   bool is_closed_;
-
-  // There is a dialog that has been attached to window.
-  bool has_dialog_attached_;
 
   // Closure that would be called when window is unresponsive when closing,
   // it should be cancelled when we can prove that the window is responsive.
