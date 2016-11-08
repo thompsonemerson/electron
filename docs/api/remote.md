@@ -2,6 +2,8 @@
 
 > Use main process modules from the renderer process.
 
+Process: [Renderer](../tutorial/quick-start.md#renderer-process)
+
 The `remote` module provides a simple way to do inter-process communication
 (IPC) between the renderer process (web page) and the main process.
 
@@ -20,7 +22,7 @@ win.loadURL('https://github.com')
 ```
 
 **Note:** For the reverse (access the renderer process from the main process),
-you can use [webContents.executeJavascript](web-contents.md#webcontentsexecutejavascriptcode-usergesture-callback).
+you can use [webContents.executeJavascript](web-contents.md#contentsexecutejavascriptcode-usergesture-callback).
 
 ## Remote Objects
 

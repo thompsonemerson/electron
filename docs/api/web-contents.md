@@ -2,8 +2,10 @@
 
 > Render and control web pages.
 
+Process: [Main](../tutorial/quick-start.md#main-process)
+
 `webContents` is an
-[EventEmitter](http://nodejs.org/api/events.html#events_class_events_eventemitter).
+[EventEmitter](https://nodejs.org/api/events.html#events_class_eventemitter).
 It is responsible for rendering and controlling a web page and is a property of
 the [`BrowserWindow`](browser-window.md) object. An example of accessing the
 `webContents` object:
@@ -46,6 +48,8 @@ Returns `WebContents` - A WebContents instance with the given ID.
 ## Class: WebContents
 
 > Render and control the contents of a BrowserWindow instance.
+
+Process: [Main](../tutorial/quick-start.md#main-process)
 
 ### Instance Events
 
@@ -147,13 +151,17 @@ Returns:
   `new-window`, `save-to-disk` and `other`.
 * `options` Object - The options which will be used for creating the new
   `BrowserWindow`.
+* `additionalFeatures` String[] - The non-standard features (features not handled
+  by Chromium or Electron) given to `window.open()`.
 
 Emitted when the page requests to open a new window for a `url`. It could be
 requested by `window.open` or an external link like `<a target='_blank'>`.
 
 By default a new `BrowserWindow` will be created for the `url`.
 
-Calling `event.preventDefault()` will prevent creating new windows.
+Calling `event.preventDefault()` will prevent creating new windows. In such case, the
+`event.newGuest` may be set with a reference to a `BrowserWindow` instance to make it
+used by the Electron's runtime.
 
 #### Event: 'will-navigate'
 
@@ -243,15 +251,9 @@ Returns:
 * `event` Event
 * `url` URL
 * `error` String - The error code
-* `certificate` Object
-  * `data` String - PEM encoded data
-  * `issuerName` String - Issuer's Common Name
-  * `subjectName` String - Subject's Common Name
-  * `serialNumber` String - Hex value represented string
-  * `validStart` Integer - Start date of the certificate being valid in seconds
-  * `validExpiry` Integer - End date of the certificate being valid in seconds
-  * `fingerprint` String - Fingerprint of the certificate
+* `certificate` [Certificate](structures/certificate.md)
 * `callback` Function
+  * `isTrusted` Boolean - Indicates whether the certificate can be considered trusted
 
 Emitted when failed to verify the `certificate` for `url`.
 
@@ -264,15 +266,9 @@ Returns:
 
 * `event` Event
 * `url` URL
-* `certificateList` [Objects]
-  * `data` String - PEM encoded data
-  * `issuerName` String - Issuer's Common Name
-  * `subjectName` String - Subject's Common Name
-  * `serialNumber` String - Hex value represented string
-  * `validStart` Integer - Start date of the certificate being valid in seconds
-  * `validExpiry` Integer - End date of the certificate being valid in seconds
-  * `fingerprint` String - Fingerprint of the certificate
+* `certificateList` [Certificate[]](structures/certificate.md)
 * `callback` Function
+  * `certificate` [Certificate](structures/certificate.md) - Must be a certificate from the given list
 
 Emitted when a client certificate is requested.
 
@@ -295,6 +291,8 @@ Returns:
   * `port` Integer
   * `realm` String
 * `callback` Function
+  * `username` String
+  * `password` String
 
 Emitted when `webContents` wants to do basic auth.
 
@@ -312,7 +310,7 @@ Returns:
   * `selectionArea` Object - Coordinates of first match region.
 
 Emitted when a result is available for
-[`webContents.findInPage`](web-contents.md#webcontentsfindinpage) request.
+[`webContents.findInPage`] request.
 
 #### Event: 'media-started-playing'
 
@@ -404,32 +402,26 @@ Returns:
   * `menuSourceType` String - Input source that invoked the context menu.
     Can be `none`, `mouse`, `keyboard`, `touch`, `touchMenu`.
   * `mediaFlags` Object - The flags for the media element the context menu was
-    invoked on. See more about this below.
-  * `editFlags` Object - These flags indicate whether the renderer believes it is
-    able to perform the corresponding action. See more about this below.
-
-The `mediaFlags` is an object with the following properties:
-
-* `inError` Boolean - Whether the media element has crashed.
-* `isPaused` Boolean - Whether the media element is paused.
-* `isMuted` Boolean - Whether the media element is muted.
-* `hasAudio` Boolean - Whether the media element has audio.
-* `isLooping` Boolean - Whether the media element is looping.
-* `isControlsVisible` Boolean - Whether the media element's controls are
-  visible.
-* `canToggleControls` Boolean - Whether the media element's controls are
-  toggleable.
-* `canRotate` Boolean - Whether the media element can be rotated.
-
-The `editFlags` is an object with the following properties:
-
-* `canUndo` Boolean - Whether the renderer believes it can undo.
-* `canRedo` Boolean - Whether the renderer believes it can redo.
-* `canCut` Boolean - Whether the renderer believes it can cut.
-* `canCopy` Boolean - Whether the renderer believes it can copy
-* `canPaste` Boolean - Whether the renderer believes it can paste.
-* `canDelete` Boolean - Whether the renderer believes it can delete.
-* `canSelectAll` Boolean - Whether the renderer believes it can select all.
+    invoked on.
+    * `inError` Boolean - Whether the media element has crashed.
+    * `isPaused` Boolean - Whether the media element is paused.
+    * `isMuted` Boolean - Whether the media element is muted.
+    * `hasAudio` Boolean - Whether the media element has audio.
+    * `isLooping` Boolean - Whether the media element is looping.
+    * `isControlsVisible` Boolean - Whether the media element's controls are
+      visible.
+    * `canToggleControls` Boolean - Whether the media element's controls are
+      toggleable.
+    * `canRotate` Boolean - Whether the media element can be rotated.
+  * `editFlags` Object - These flags indicate whether the renderer believes it
+    is able to perform the corresponding action.
+    * `canUndo` Boolean - Whether the renderer believes it can undo.
+    * `canRedo` Boolean - Whether the renderer believes it can redo.
+    * `canCut` Boolean - Whether the renderer believes it can cut.
+    * `canCopy` Boolean - Whether the renderer believes it can copy
+    * `canPaste` Boolean - Whether the renderer believes it can paste.
+    * `canDelete` Boolean - Whether the renderer believes it can delete.
+    * `canSelectAll` Boolean - Whether the renderer believes it can select all.
 
 Emitted when there is a new context menu that needs to be handled.
 
@@ -438,9 +430,7 @@ Emitted when there is a new context menu that needs to be handled.
 Returns:
 
 * `event` Event
-* `devices` [Objects]
-  * `deviceName` String
-  * `deviceId` String
+* `devices` [BluetoothDevice[]](structures/bluetooth-device.md)
 * `callback` Function
   * `deviceId` String
 
@@ -475,11 +465,7 @@ app.on('ready', () => {
 Returns:
 
 * `event` Event
-* `dirtyRect` Object
-  * `x` Integer - The x coordinate on the image.
-  * `y` Integer - The y coordinate on the image.
-  * `width` Integer - The width of the dirty area.
-  * `height` Integer - The height of the dirty area.
+* `dirtyRect` [Rectangle](structures/rectangle.md)
 * `image` [NativeImage](native-image.md) - The image data of the whole frame.
 
 Emitted when a new frame is generated. Only the dirty area is passed in the
@@ -517,7 +503,7 @@ webContents.loadURL('https://github.com', options)
 
 #### `contents.downloadURL(url)`
 
-* `url` URL
+* `url` String
 
 Initiates a download of the resource at `url` without navigating. The
 `will-download` event of `session` will be triggered.
@@ -636,13 +622,27 @@ Injects CSS into the current web page.
 * `code` String
 * `userGesture` Boolean (optional)
 * `callback` Function (optional) - Called after script has been executed.
-  * `result`
+  * `result` Any
+
+Returns `Promise` - A promise that resolves with the result of the executed code
+or is rejected if the result of the code is a rejected promise.
 
 Evaluates `code` in page.
 
 In the browser window some HTML APIs like `requestFullScreen` can only be
 invoked by a gesture from the user. Setting `userGesture` to `true` will remove
 this limitation.
+
+If the result of the executed code is a promise the callback result will be the
+resolved value of the promise.  We recommend that you use the returned Promise
+to handle code that results in a Promise.
+
+```js
+contents.executeJavaScript('fetch("https://jsonplaceholder.typicode.com/users/1").then(resp => resp.json())', true)
+  .then((result) => {
+    console.log(result) // Will be the JSON object from the fetch call
+  })
+```
 
 #### `contents.setAudioMuted(muted)`
 
@@ -664,6 +664,7 @@ zoom percent divided by 100, so 300% = 3.0.
 #### `contents.getZoomFactor(callback)`
 
 * `callback` Function
+  * `zoomFactor` Number
 
 Sends a request to get current zoom factor, the `callback` will be called with
 `callback(zoomFactor)`.
@@ -679,6 +680,7 @@ limits of 300% and 50% of original size, respectively.
 #### `contents.getZoomLevel(callback)`
 
 * `callback` Function
+  * `zoomLevel` Number
 
 Sends a request to get current zoom level, the `callback` will be called with
 `callback(zoomLevel)`.
@@ -775,7 +777,7 @@ the request can be obtained by subscribing to
 #### `contents.stopFindInPage(action)`
 
 * `action` String - Specifies the action to take place when ending
-  [`webContents.findInPage`](web-contents.md#webcontentfindinpage) request.
+  [`webContents.findInPage`] request.
   * `clearSelection` - Clear the selection.
   * `keepSelection` - Translate the selection into a normal selection.
   * `activateSelection` - Focus and click the selection node.
@@ -794,12 +796,9 @@ console.log(requestId)
 
 #### `contents.capturePage([rect, ]callback)`
 
-* `rect` Object (optional) - The area of the page to be captured
-  * `x` Integer
-  * `y` Integer
-  * `width` Integer
-  * `height` Integer
+* `rect` [Rectangle](structures/rectangle.md) (optional) - The area of the page to be captured
 * `callback` Function
+  * `image` [NativeImage](native-image.md)
 
 Captures a snapshot of the page within `rect`. Upon completion `callback` will
 be called with `callback(image)`. The `image` is an instance of
@@ -809,6 +808,7 @@ be called with `callback(image)`. The `image` is an instance of
 #### `contents.hasServiceWorker(callback)`
 
 * `callback` Function
+  * `hasWorker` Boolean
 
 Checks if any ServiceWorker is registered and returns a boolean as
 response to `callback`.
@@ -816,6 +816,7 @@ response to `callback`.
 #### `contents.unregisterServiceWorker(callback)`
 
 * `callback` Function
+  * `success` Boolean
 
 Unregisters any ServiceWorker if present and returns a boolean as
 response to `callback` when the JS promise is fulfilled or false
@@ -848,6 +849,8 @@ Use `page-break-before: always; ` CSS style to force to print to a new page.
   * `printSelectionOnly` Boolean - Whether to print selection only.
   * `landscape` Boolean - `true` for landscape, `false` for portrait.
 * `callback` Function
+  * `error` Error
+  * `data` Buffer
 
 Prints window's web page as PDF with Chromium's preview printing custom
 settings.
@@ -991,8 +994,8 @@ app.on('ready', () => {
 * `parameters` Object
   * `screenPosition` String - Specify the screen type to emulate
       (default: `desktop`)
-    * `desktop` String - Desktop screen type
-    * `mobile` String - Mobile screen type
+    * `desktop` - Desktop screen type
+    * `mobile` - Mobile screen type
   * `screenSize` Object - Set the emulated screen size (screenPosition == mobile)
     * `width` Integer - Set the emulated screen width
     * `height` Integer - Set the emulated screen height
@@ -1065,6 +1068,8 @@ For the `mouseWheel` event, the `event` object also have following properties:
 
 * `onlyDirty` Boolean (optional) - Defaults to `false`
 * `callback` Function
+  * `frameBuffer` Buffer
+  * `dirtyRect` [Rectangle](structures/rectangle.md)
 
 Begin subscribing for presentation events and captured frames, the `callback`
 will be called with `callback(frameBuffer, dirtyRect)` when there is a
@@ -1087,7 +1092,7 @@ End subscribing for frame presentation events.
 
 #### `contents.startDrag(item)`
 
-* `item` object
+* `item` Object
   * `file` String
   * `icon` [NativeImage](native-image.md)
 
@@ -1185,6 +1190,8 @@ A Debugger instance for this webContents.
 
 > An alternate transport for Chrome's remote debugging protocol.
 
+Process: [Main](../tutorial/quick-start.md#main-process)
+
 Chrome Developer Tools has a [special binding][rdp] available at JavaScript
 runtime that allows interacting with pages and instrumenting them.
 
@@ -1236,7 +1243,7 @@ Detaches the debugger from the `webContents`.
 * `commandParams` Object (optional) - JSON object with request parameters.
 * `callback` Function (optional) - Response
   * `error` Object - Error message indicating the failure of the command.
-  * `result` Object - Response defined by the 'returns' attribute of
+  * `result` Any - Response defined by the 'returns' attribute of
      the command description in the remote debugging protocol.
 
 Send given command to the debugging target.
@@ -1261,3 +1268,4 @@ Emitted when debugging session is terminated. This happens either when
 Emitted whenever debugging target issues instrumentation event.
 
 [rdp]: https://developer.chrome.com/devtools/docs/debugger-protocol
+[`webContents.findInPage`]: web-contents.md#contentsfindinpagetext-options

@@ -2,6 +2,8 @@
 
 > Submit crash reports to a remote server.
 
+Process: [Main](../tutorial/quick-start.md#main-process), [Renderer](../tutorial/quick-start.md#renderer-process)
+
 The following is an example of automatically submitting a crash report to a
 remote server:
 
@@ -21,6 +23,12 @@ following projects:
 
 * [socorro](https://github.com/mozilla/socorro)
 * [mini-breakpad-server](https://github.com/electron/mini-breakpad-server)
+
+Crash reports are saved locally in an application-specific temp directory folder.
+For a `productName` of `YourName`, crash reports will be stored in a folder
+named `YourName Crashes` inside the temp directory. You can customize this temp
+directory location for your app by calling the `app.setPath('temp', '/my/custom/temp')`
+API before starting the crash reporter.
 
 ## Methods
 
@@ -51,6 +59,7 @@ crash reports.
 ### `crashReporter.getLastCrashReport()`
 
 Returns `Object`:
+
 * `date` String
 * `ID` Integer
 
@@ -60,6 +69,7 @@ sent or the crash reporter has not been started, `null` is returned.
 ### `crashReporter.getUploadedReports()`
 
 Returns `Object[]`:
+
 * `date` String
 * `ID` Integer
 
@@ -82,5 +92,5 @@ a `multipart/form-data` `POST`:
 * `_companyName` String - The company name in the `crashReporter` `options`
   object.
 * `upload_file_minidump` File - The crash report in the format of `minidump`.
-* All level one properties of the `extra` object in the `crashReporter`.
-  `options` object
+* All level one properties of the `extra` object in the `crashReporter`
+  `options` object.

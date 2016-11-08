@@ -8,16 +8,21 @@
 #include "atom/common/native_mate_converters/value_converter.h"
 #include "atom/common/node_includes.h"
 #include "native_mate/dictionary.h"
+#include "ui/gfx/color_utils.h"
 
 namespace atom {
 
 namespace api {
 
-SystemPreferences::SystemPreferences(v8::Isolate* isolate) {
+SystemPreferences::SystemPreferences(v8::Isolate* isolate)
+#if defined(OS_WIN)
+    : color_change_listener_(this)
+#endif
+    {
   Init(isolate);
-  #if defined(OS_WIN)
+#if defined(OS_WIN)
   InitializeWindow();
-  #endif
+#endif
 }
 
 SystemPreferences::~SystemPreferences() {
@@ -28,6 +33,10 @@ bool SystemPreferences::IsDarkMode() {
   return false;
 }
 #endif
+
+bool SystemPreferences::IsInvertedColorScheme() {
+  return color_utils::IsInvertedColorScheme();
+}
 
 // static
 mate::Handle<SystemPreferences> SystemPreferences::Create(
@@ -43,6 +52,7 @@ void SystemPreferences::BuildPrototype(
 #if defined(OS_WIN)
       .SetMethod("getAccentColor", &SystemPreferences::GetAccentColor)
       .SetMethod("isAeroGlassEnabled", &SystemPreferences::IsAeroGlassEnabled)
+      .SetMethod("getColor", &SystemPreferences::GetColor)
 #elif defined(OS_MACOSX)
       .SetMethod("postNotification",
                  &SystemPreferences::PostNotification)
@@ -60,6 +70,8 @@ void SystemPreferences::BuildPrototype(
       .SetMethod("isSwipeTrackingFromScrollEventsEnabled",
                  &SystemPreferences::IsSwipeTrackingFromScrollEventsEnabled)
 #endif
+      .SetMethod("isInvertedColorScheme",
+                 &SystemPreferences::IsInvertedColorScheme)
       .SetMethod("isDarkMode", &SystemPreferences::IsDarkMode);
 }
 

@@ -2,6 +2,8 @@
 
 > Create native application menus and context menus.
 
+Process: [Main](../tutorial/quick-start.md#main-process)
+
 Each `Menu` consists of multiple [`MenuItem`](menu-item.md)s and each `MenuItem`
 can have a submenu.
 
@@ -16,7 +18,7 @@ An example of creating the application menu in the main process with the
 simple template API:
 
 ```javascript
-const {Menu} = require('electron')
+const {app, Menu} = require('electron')
 
 const template = [
   {
@@ -111,9 +113,8 @@ const template = [
 ]
 
 if (process.platform === 'darwin') {
-  const name = require('electron').remote.app.getName()
   template.unshift({
-    label: name,
+    label: app.getName(),
     submenu: [
       {
         role: 'about'

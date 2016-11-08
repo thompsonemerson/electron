@@ -37,6 +37,7 @@ an issue:
 * [Quick Start](tutorial/quick-start.md)
 * [Desktop Environment Integration](tutorial/desktop-environment-integration.md)
 * [Online/Offline Event Detection](tutorial/online-offline-events.md)
+* [REPL](tutorial/repl.md)
 
 ## API References
 
@@ -62,6 +63,7 @@ an issue:
 * [ipcMain](api/ipc-main.md)
 * [Menu](api/menu.md)
 * [MenuItem](api/menu-item.md)
+* [net](api/net.md)
 * [powerMonitor](api/power-monitor.md)
 * [powerSaveBlocker](api/power-save-blocker.md)
 * [protocol](api/protocol.md)
@@ -88,13 +90,14 @@ an issue:
 ## Development
 
 * [Coding Style](development/coding-style.md)
+* [Using clang-format on C++ Code](development/clang-format.md)
 * [Source Code Directory Structure](development/source-code-directory-structure.md)
 * [Technical Differences to NW.js (formerly node-webkit)](development/atom-shell-vs-node-webkit.md)
 * [Build System Overview](development/build-system-overview.md)
 * [Build Instructions (macOS)](development/build-instructions-osx.md)
 * [Build Instructions (Windows)](development/build-instructions-windows.md)
 * [Build Instructions (Linux)](development/build-instructions-linux.md)
-* [Debug Instructions (macOS)](development/debug-instructions-macos.md)
+* [Debug Instructions (macOS)](development/debugging-instructions-macos.md)
 * [Debug Instructions (Windows)](development/debug-instructions-windows.md)
 * [Setting Up Symbol Server in debugger](development/setting-up-symbol-server.md)
-* [Documentation Styleguide](development/styleguide.md)
+* [Documentation Styleguide](styleguide.md)

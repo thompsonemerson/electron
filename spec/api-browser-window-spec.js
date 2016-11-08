@@ -118,6 +118,13 @@ describe('browser-window module', function () {
       w.loadURL('about:blank')
     })
 
+    it('should emit ready-to-show event', function (done) {
+      w.on('ready-to-show', function () {
+        done()
+      })
+      w.loadURL('about:blank')
+    })
+
     it('should emit did-get-response-details event', function (done) {
       // expected {fileName: resourceType} pairs
       var expectedResources = {
@@ -598,7 +605,7 @@ describe('browser-window module', function () {
 
       const preload = path.join(fixtures, 'module', 'preload-sandbox.js')
 
-      // http protocol to simulate accessing a another domain. this is required
+      // http protocol to simulate accessing another domain. This is required
       // because the code paths for cross domain popups is different.
       function crossDomainHandler (request, callback) {
         callback({
@@ -698,6 +705,7 @@ describe('browser-window module', function () {
         })
         let htmlPath = path.join(fixtures, 'api', 'sandbox.html?window-open-external')
         const pageUrl = 'file://' + htmlPath
+        let popupWindow
         w.loadURL(pageUrl)
         w.webContents.once('new-window', (e, url, frameName, disposition, options) => {
           assert.equal(url, 'http://www.google.com/#q=electron')
@@ -710,10 +718,19 @@ describe('browser-window module', function () {
             assert.equal(html, '<h1>http://www.google.com/#q=electron</h1>')
             ipcMain.once('answer', function (event, exceptionMessage) {
               assert(/Blocked a frame with origin/.test(exceptionMessage))
-              done()
+
+              // FIXME this popup window should be closed in sandbox.html
+              closeWindow(popupWindow).then(() => {
+                popupWindow = null
+                done()
+              })
             })
             w.webContents.send('child-loaded')
           })
+        })
+
+        app.once('browser-window-created', function (event, window) {
+          popupWindow = window
         })
       })
 
@@ -808,10 +825,24 @@ describe('browser-window module', function () {
     }
 
     it('emits when window.open is called', function (done) {
-      w.webContents.once('new-window', function (e, url, frameName) {
+      w.webContents.once('new-window', function (e, url, frameName, disposition, options, additionalFeatures) {
         e.preventDefault()
         assert.equal(url, 'http://host/')
         assert.equal(frameName, 'host')
+        assert.equal(additionalFeatures[0], 'this-is-not-a-standard-feature')
+        done()
+      })
+      w.loadURL('file://' + fixtures + '/pages/window-open.html')
+    })
+
+    it('emits when window.open is called with no webPreferences', function (done) {
+      w.destroy()
+      w = new BrowserWindow({ show: false })
+      w.webContents.once('new-window', function (e, url, frameName, disposition, options, additionalFeatures) {
+        e.preventDefault()
+        assert.equal(url, 'http://host/')
+        assert.equal(frameName, 'host')
+        assert.equal(additionalFeatures[0], 'this-is-not-a-standard-feature')
         done()
       })
       w.loadURL('file://' + fixtures + '/pages/window-open.html')
@@ -1431,7 +1462,10 @@ describe('browser-window module', function () {
 
   describe('window.webContents.executeJavaScript', function () {
     var expected = 'hello, world!'
-    var code = '(() => "' + expected + '")()'
+    var expectedErrorMsg = 'woops!'
+    var code = `(() => "${expected}")()`
+    var asyncCode = `(() => new Promise(r => setTimeout(() => r("${expected}"), 500)))()`
+    var badAsyncCode = `(() => new Promise((r, e) => setTimeout(() => e("${expectedErrorMsg}"), 500)))()`
 
     it('doesnt throw when no calback is provided', function () {
       const result = ipcRenderer.sendSync('executeJavaScript', code, false)
@@ -1442,6 +1476,38 @@ describe('browser-window module', function () {
       ipcRenderer.send('executeJavaScript', code, true)
       ipcRenderer.once('executeJavaScript-response', function (event, result) {
         assert.equal(result, expected)
+        done()
+      })
+    })
+
+    it('returns result if the code returns an asyncronous promise', function (done) {
+      ipcRenderer.send('executeJavaScript', asyncCode, true)
+      ipcRenderer.once('executeJavaScript-response', function (event, result) {
+        assert.equal(result, expected)
+        done()
+      })
+    })
+
+    it('resolves the returned promise with the result', function (done) {
+      ipcRenderer.send('executeJavaScript', code, true)
+      ipcRenderer.once('executeJavaScript-promise-response', function (event, result) {
+        assert.equal(result, expected)
+        done()
+      })
+    })
+
+    it('resolves the returned promise with the result if the code returns an asyncronous promise', function (done) {
+      ipcRenderer.send('executeJavaScript', asyncCode, true)
+      ipcRenderer.once('executeJavaScript-promise-response', function (event, result) {
+        assert.equal(result, expected)
+        done()
+      })
+    })
+
+    it('rejects the returned promise if an async error is thrown', function (done) {
+      ipcRenderer.send('executeJavaScript', badAsyncCode, true)
+      ipcRenderer.once('executeJavaScript-promise-error', function (event, error) {
+        assert.equal(error, expectedErrorMsg)
         done()
       })
     })

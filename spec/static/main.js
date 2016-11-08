@@ -8,6 +8,7 @@ const ipcMain = electron.ipcMain
 const dialog = electron.dialog
 const BrowserWindow = electron.BrowserWindow
 const protocol = electron.protocol
+const v8 = require('v8')
 
 const Coverage = require('electabul').Coverage
 const fs = require('fs')
@@ -24,6 +25,7 @@ var argv = require('yargs')
 var window = null
 process.port = 0 // will be used by crash-reporter spec.
 
+v8.setFlagsFromString('--expose_gc')
 app.commandLine.appendSwitch('js-flags', '--expose_gc')
 app.commandLine.appendSwitch('ignore-certificate-errors')
 app.commandLine.appendSwitch('disable-renderer-backgrounding')
@@ -41,7 +43,7 @@ ipcMain.on('message', function (event, ...args) {
 })
 
 // Set productName so getUploadedReports() uses the right directory in specs
-if (process.platform === 'win32') {
+if (process.platform !== 'darwin') {
   crashReporter.productName = 'Zombies'
 }
 
@@ -171,6 +173,10 @@ app.on('ready', function () {
     if (hasCallback) {
       window.webContents.executeJavaScript(code, (result) => {
         window.webContents.send('executeJavaScript-response', result)
+      }).then((result) => {
+        window.webContents.send('executeJavaScript-promise-response', result)
+      }).catch((err) => {
+        window.webContents.send('executeJavaScript-promise-error', err)
       })
     } else {
       window.webContents.executeJavaScript(code)

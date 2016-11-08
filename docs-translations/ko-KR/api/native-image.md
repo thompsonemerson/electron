@@ -2,6 +2,8 @@
 
 > PNG 또는 JPG 파일을 사용하여 트레이, 독, 애플리케이션 아이콘을 생성합니다.
 
+프로세스: [메인](../tutorial/quick-start.md#main-process), [렌더러](../tutorial/quick-start.md#renderer-process)
+
 Electron은 파일 경로 또는 `NativeImage` 인스턴스를 통해 이미지를 사용할 수 있는 API를
 가지고 있습니다. `null`을 전달할 경우 빈 이미지가 생성됩니다.
 
@@ -117,7 +119,7 @@ Returns `NativeImage`
 
 `path`로부터 이미지를 로드하여 새로운 `NativeImage` 인스턴스를 만듭니다.
 `path` 가 존재하지 않거나, 읽을 수 없거나, 유효한 이미지가 아니면 빈 이미지를
-반환한다.
+반환합니다.
 
 ```javascript
 const nativeImage = require('electron').nativeImage
@@ -142,7 +144,9 @@ Returns `NativeImage`
 
 ## Class: NativeImage
 
-네이티브로 랩핑된 트레이, dock, 애플리케이션 아이콘을 위한 이미지입니다.
+> 네이티브로 랩핑된 트레이, dock, 애플리케이션 아이콘을 위한 이미지입니다.
+
+프로세스: [메인](../tutorial/quick-start.md#main-process), [렌더러](../tutorial/quick-start.md#renderer-process)
 
 ### Instance Methods
 
@@ -190,7 +194,10 @@ Returns `Boolean` - 이미지가 비었는지 여부.
 
 #### `image.getSize()`
 
-Returns `Integer[]` - 이미지의 크기.
+Returns `Object`:
+
+* `width` Integer
+* `height` Integer
 
 #### `image.setTemplateImage(option)`
 
@@ -201,5 +208,35 @@ Returns `Integer[]` - 이미지의 크기.
 #### `image.isTemplateImage()`
 
 Returns `Boolean` - 이미지가 템플릿 이미지인지 여부.
+
+#### `image.crop(rect)`
+
+* `rect` Object - 잘라내기 위한 이미지 영역
+  * `x` Integer
+  * `y` Integer
+  * `width` Integer
+  * `height` Integer
+
+Returns `NativeImage` - 잘라낸 이미지.
+
+#### `image.resize(options)`
+
+* `options` Object
+  * `width` Integer (optional)
+  * `height` Integer (optional)
+  * `quality` String (optional) - 크기 변경된 이미지의 원하는 품질.
+    가능한 값은 `good`, `better`, `best` 이며, 기본값은 `best` 입니다.
+    이 값은 원하는 품질/속도 균형을 표현합니다. 이것은 기본이되는 플랫폼의 성능
+    (CPU, GPU) 에 의존하는 알고리즘에 특정 방법으로 변환됩니다. 주어진
+    플랫폼에서 세가지 방법이 모두 같은 알고리즘에 매핑될 수 있습니다.
+
+Returns `NativeImage` - 크기 변경된 이미지.
+
+`height` 또는 `width` 하나만 명시한다면 크기가 변경된 이미지에서도 종횡비가
+유지될 것 입니다.
+
+#### `image.getAspectRatio()`
+
+Returns `Float` - 이미지의 종횡비.
 
 [buffer]: https://nodejs.org/api/buffer.html#buffer_class_buffer

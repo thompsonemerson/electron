@@ -138,7 +138,7 @@ NativeWindowViews::NativeWindowViews(
       menu_bar_visible_(false),
       menu_bar_alt_pressed_(false),
 #if defined(OS_WIN)
-      enabled_a11y_support_(false),
+      checked_for_a11y_support_(false),
       thick_frame_(true),
 #endif
       keyboard_event_handler_(new views::UnhandledKeyboardEventHandler),
@@ -327,7 +327,6 @@ NativeWindowViews::NativeWindowViews(
     last_window_state_ = ui::SHOW_STATE_FULLSCREEN;
   else
     last_window_state_ = ui::SHOW_STATE_NORMAL;
-  last_normal_bounds_ = GetBounds();
 #endif
 }
 
@@ -846,7 +845,7 @@ void NativeWindowViews::SetMenu(AtomMenuModel* menu_model) {
 
   if (!menu_bar_) {
     gfx::Size content_size = GetContentSize();
-    menu_bar_.reset(new MenuBar);
+    menu_bar_.reset(new MenuBar(this));
     menu_bar_->set_owned_by_client();
 
     if (!menu_bar_autohide_) {
