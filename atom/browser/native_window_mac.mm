@@ -102,6 +102,41 @@ bool ScopedDisableResize::disable_resize_ = false;
    }
 }
 
+// Called when the user clicks the zoom button or selects it from the Window
+// menu to determine the "standard size" of the window.
+- (NSRect)windowWillUseStandardFrame:(NSWindow*)window
+                        defaultFrame:(NSRect)frame {
+  if (!shell_->zoom_to_page_width())
+    return frame;
+
+  // If the shift key is down, maximize.
+  if ([[NSApp currentEvent] modifierFlags] & NSShiftKeyMask)
+    return frame;
+
+  content::WebContents* web_contents = shell_->web_contents();
+  if (!web_contents)
+    return frame;
+
+  CGFloat page_width = static_cast<CGFloat>(
+      web_contents->GetPreferredSize().width());
+  NSRect window_frame = [window frame];
+
+  // Never shrink from the current size on zoom.
+  CGFloat zoomed_width = std::max(page_width, NSWidth(window_frame));
+
+  // |frame| determines our maximum extents. We need to set the origin of the
+  // frame -- and only move it left if necessary.
+  if (window_frame.origin.x + zoomed_width > NSMaxX(frame))
+    frame.origin.x = NSMaxX(frame) - zoomed_width;
+  else
+    frame.origin.x = window_frame.origin.x;
+
+  // Set the width. Don't touch y or height.
+  frame.size.width = zoomed_width;
+
+  return frame;
+}
+
 - (void)windowDidBecomeMain:(NSNotification*)notification {
   content::WebContents* web_contents = shell_->web_contents();
   if (!web_contents)
@@ -311,6 +346,7 @@ bool ScopedDisableResize::disable_resize_ = false;
 @property BOOL disableKeyOrMainWindow;
 @property NSPoint windowButtonsOffset;
 @property (nonatomic, retain) AtomPreviewItem* quickLookItem;
+@property (nonatomic, retain) NSView* vibrantView;
 
 - (void)setShell:(atom::NativeWindowMac*)shell;
 - (void)setEnableLargerThanScreen:(bool)enable;
@@ -583,6 +619,7 @@ NativeWindowMac::NativeWindowMac(
     NativeWindow* parent)
     : NativeWindow(web_contents, options, parent),
       is_kiosk_(false),
+      zoom_to_page_width_(false),
       attention_request_id_(0),
       title_bar_style_(NORMAL) {
   int width = 800, height = 600;
@@ -705,6 +742,8 @@ NativeWindowMac::NativeWindowMac(
   if (!has_frame() || !use_content_size)
     SetSize(gfx::Size(width, height));
 
+  options.Get(options::kZoomToPageWidth, &zoom_to_page_width_);
+
   // Enable the NSView to accept first mouse event.
   bool acceptsFirstMouse = false;
   options.Get(options::kAcceptFirstMouse, &acceptsFirstMouse);
@@ -742,6 +781,11 @@ NativeWindowMac::NativeWindowMac(
   }];
 
   InstallView();
+
+  std::string type;
+  if (options.Get(options::kVibrancyType, &type)) {
+    SetVibrancy(type);
+  }
 
   // Set maximizable state last to ensure zoom button does not get reset
   // by calls to other APIs.
@@ -958,6 +1002,12 @@ void NativeWindowMac::PreviewFile(const std::string& path,
   NSString* path_ns = [NSString stringWithUTF8String:path.c_str()];
   NSString* name_ns = [NSString stringWithUTF8String:display_name.c_str()];
   [window_ previewFileAtPath:path_ns withName:name_ns];
+}
+
+void NativeWindowMac::CloseFilePreview() {
+  if ([QLPreviewPanel sharedPreviewPanelExists]) {
+    [[QLPreviewPanel sharedPreviewPanel] close];
+  }
 }
 
 void NativeWindowMac::SetMovable(bool movable) {
@@ -1203,6 +1253,77 @@ void NativeWindowMac::SetVisibleOnAllWorkspaces(bool visible) {
 bool NativeWindowMac::IsVisibleOnAllWorkspaces() {
   NSUInteger collectionBehavior = [window_ collectionBehavior];
   return collectionBehavior & NSWindowCollectionBehaviorCanJoinAllSpaces;
+}
+
+void NativeWindowMac::SetAutoHideCursor(bool auto_hide) {
+  [window_ setDisableAutoHideCursor:!auto_hide];
+}
+
+void NativeWindowMac::SetVibrancy(const std::string& type) {
+  if (!base::mac::IsOSYosemiteOrLater()) return;
+
+  NSView* vibrant_view = [window_ vibrantView];
+
+  if (type.empty()) {
+    if (vibrant_view == nil) return;
+
+    [vibrant_view removeFromSuperview];
+    [window_ setVibrantView:nil];
+
+    return;
+  }
+
+  NSVisualEffectView* effect_view = (NSVisualEffectView*)vibrant_view;
+  if (effect_view == nil) {
+    effect_view = [[[NSVisualEffectView alloc]
+        initWithFrame: [[window_ contentView] bounds]] autorelease];
+    [window_ setVibrantView:(NSView*)effect_view];
+
+    [effect_view setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
+    [effect_view setBlendingMode:NSVisualEffectBlendingModeBehindWindow];
+    [effect_view setState:NSVisualEffectStateActive];
+    [[window_ contentView] addSubview:effect_view
+                           positioned:NSWindowBelow
+                           relativeTo:nil];
+  }
+
+  NSVisualEffectMaterial vibrancyType = NSVisualEffectMaterialLight;
+
+  if (type == "appearance-based") {
+    vibrancyType = NSVisualEffectMaterialAppearanceBased;
+  } else if (type == "light") {
+    vibrancyType = NSVisualEffectMaterialLight;
+  } else if (type == "dark") {
+    vibrancyType = NSVisualEffectMaterialDark;
+  } else if (type == "titlebar") {
+    vibrancyType = NSVisualEffectMaterialTitlebar;
+  }
+
+  if (base::mac::IsOSElCapitanOrLater()) {
+    // TODO(kevinsawicki): Use NSVisualEffectMaterial* constants directly once
+    // they are available in the minimum SDK version
+    if (type == "selection") {
+      // NSVisualEffectMaterialSelection
+      vibrancyType = (NSVisualEffectMaterial) 4;
+    } else if (type == "menu") {
+      // NSVisualEffectMaterialMenu
+      vibrancyType = (NSVisualEffectMaterial) 5;
+    } else if (type == "popover") {
+      // NSVisualEffectMaterialPopover
+      vibrancyType = (NSVisualEffectMaterial) 6;
+    } else if (type == "sidebar") {
+      // NSVisualEffectMaterialSidebar
+      vibrancyType = (NSVisualEffectMaterial) 7;
+    } else if (type == "medium-light") {
+      // NSVisualEffectMaterialMediumLight
+      vibrancyType = (NSVisualEffectMaterial) 8;
+    } else if (type == "ultra-dark") {
+      // NSVisualEffectMaterialUltraDark
+      vibrancyType = (NSVisualEffectMaterial) 9;
+    }
+  }
+
+  [effect_view setMaterial:vibrancyType];
 }
 
 void NativeWindowMac::OnInputEvent(const blink::WebInputEvent& event) {

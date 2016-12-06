@@ -81,7 +81,7 @@ describe('app module', function () {
     var appProcess = null
 
     afterEach(function () {
-      appProcess != null ? appProcess.kill() : void 0
+      if (appProcess != null) appProcess.kill()
     })
 
     it('emits a process exit event with the code', function (done) {
@@ -127,7 +127,8 @@ describe('app module', function () {
     })
 
     it('relaunches the app', function (done) {
-      this.timeout(100000)
+      this.timeout(120000)
+
       let state = 'none'
       server.once('error', (error) => {
         done(error)
@@ -162,8 +163,6 @@ describe('app module', function () {
 
   describe('app.importCertificate', function () {
     if (process.platform !== 'linux') return
-
-    this.timeout(5000)
 
     var w = null
     var certPath = path.join(__dirname, 'fixtures', 'certificates')
@@ -207,6 +206,9 @@ describe('app module', function () {
       app.on('select-client-certificate', function (event, webContents, url, list, callback) {
         assert.equal(list.length, 1)
         assert.equal(list[0].issuerName, 'Intermediate CA')
+        assert.equal(list[0].subjectName, 'Client Cert')
+        assert.equal(list[0].issuer.commonName, 'Intermediate CA')
+        assert.equal(list[0].subject.commonName, 'Client Cert')
         callback(list[0])
       })
 

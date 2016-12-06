@@ -57,6 +57,7 @@ class NativeWindowMac : public NativeWindow,
     override;
   void PreviewFile(const std::string& path, const std::string& display_name)
     override;
+  void CloseFilePreview() override;
   bool IsMovable() override;
   void SetMinimizable(bool minimizable) override;
   bool IsMinimizable() override;
@@ -90,8 +91,13 @@ class NativeWindowMac : public NativeWindow,
   void SetProgressBar(double progress, const ProgressState state) override;
   void SetOverlayIcon(const gfx::Image& overlay,
                       const std::string& description) override;
+
   void SetVisibleOnAllWorkspaces(bool visible) override;
   bool IsVisibleOnAllWorkspaces() override;
+
+  void SetAutoHideCursor(bool auto_hide) override;
+
+  void SetVibrancy(const std::string& type) override;
 
   // content::RenderWidgetHost::InputEventObserver:
   void OnInputEvent(const blink::WebInputEvent& event) override;
@@ -115,6 +121,8 @@ class NativeWindowMac : public NativeWindow,
     HIDDEN_INSET,
   };
   TitleBarStyle title_bar_style() const { return title_bar_style_; }
+
+  bool zoom_to_page_width() const { return zoom_to_page_width_; }
 
  protected:
   // Return a vector of non-draggable regions that fill a window of size
@@ -153,6 +161,8 @@ class NativeWindowMac : public NativeWindow,
   std::vector<DraggableRegion> draggable_regions_;
 
   bool is_kiosk_;
+
+  bool zoom_to_page_width_;
 
   NSInteger attention_request_id_;  // identifier from requestUserAttention
 

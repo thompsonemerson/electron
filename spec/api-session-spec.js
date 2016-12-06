@@ -9,8 +9,6 @@ const {ipcRenderer, remote} = require('electron')
 const {ipcMain, session, BrowserWindow} = remote
 
 describe('session module', function () {
-  this.timeout(10000)
-
   var fixtures = path.resolve(__dirname, 'fixtures')
   var w = null
   var url = 'http://127.0.0.1'
@@ -236,18 +234,13 @@ describe('session module', function () {
   })
 
   describe('will-download event', function () {
-    var w = null
-
     beforeEach(function () {
+      if (w != null) w.destroy()
       w = new BrowserWindow({
         show: false,
         width: 400,
         height: 400
       })
-    })
-
-    afterEach(function () {
-      return closeWindow(w).then(function () { w = null })
     })
 
     it('can cancel default download behavior', function (done) {
@@ -553,6 +546,14 @@ describe('session module', function () {
       session.defaultSession.setCertificateVerifyProc(function (hostname, certificate, callback) {
         assert.equal(hostname, '127.0.0.1')
         assert.equal(certificate.issuerName, 'Intermediate CA')
+        assert.equal(certificate.subjectName, 'localhost')
+        assert.equal(certificate.issuer.commonName, 'Intermediate CA')
+        assert.equal(certificate.subject.commonName, 'localhost')
+        assert.equal(certificate.issuerCert.issuer.commonName, 'Root CA')
+        assert.equal(certificate.issuerCert.subject.commonName, 'Intermediate CA')
+        assert.equal(certificate.issuerCert.issuerCert.issuer.commonName, 'Root CA')
+        assert.equal(certificate.issuerCert.issuerCert.subject.commonName, 'Root CA')
+        assert.equal(certificate.issuerCert.issuerCert.issuerCert, undefined)
         callback(false)
       })
 
