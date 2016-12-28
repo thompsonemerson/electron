@@ -2,7 +2,7 @@
 
 > Display native system dialogs for opening and saving files, alerting, etc.
 
-Process: [Main](../tutorial/quick-start.md#main-process)
+Process: [Main](../glossary.md#main-process)
 
 An example of showing a dialog to select multiple files and directories:
 
@@ -41,6 +41,8 @@ The `dialog` module has the following methods:
 Returns `String[]`, an array of file paths chosen by the user,
 if the callback is provided it returns `undefined`.
 
+The `browserWindow` argument allows the dialog to attach itself to a parent window, making it modal.
+
 The `filters` specifies an array of file types that can be displayed or
 selected when you want to limit the user to a specific type. For example:
 
@@ -75,12 +77,14 @@ shown.
   * `defaultPath` String (optional)
   * `buttonLabel` String (optional) - Custom label for the confirmation button, when
     left empty the default label will be used.
-  * `filters` [FileFilter[]](structrs/file-filter.md) (optional)
+  * `filters` [FileFilter[]](structures/file-filter.md) (optional)
 * `callback` Function (optional)
   * `filename` String
 
 Returns `String`, the path of the file chosen by the user,
 if a callback is provided it returns `undefined`.
+
+The `browserWindow` argument allows the dialog to attach itself to a parent window, making it modal.
 
 The `filters` specifies an array of file types that can be displayed, see
 `dialog.showOpenDialog` for an example.
@@ -121,6 +125,8 @@ it returns undefined.
 
 Shows a message box, it will block the process until the message box is closed.
 It returns the index of the clicked button.
+
+The `browserWindow` argument allows the dialog to attach itself to a parent window, making it modal.
 
 If a `callback` is passed, the API call will be asynchronous and the result
 will be passed via `callback(response)`.

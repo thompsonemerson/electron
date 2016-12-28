@@ -2,7 +2,7 @@
 
 > Add items to native application menus and context menus.
 
-Process: [Main](../tutorial/quick-start.md#main-process)
+Process: [Main](../glossary.md#main-process)
 
 See [`Menu`](menu.md) for examples.
 
@@ -106,3 +106,11 @@ A `radio` menu item will turn on its `checked` property when clicked, and
 will turn off that property for all adjacent items in the same menu.
 
 You can add a `click` function for additional behavior.
+
+#### `menuItem.label`
+
+A String representing the menu items visible label
+
+#### `menuItem.click`
+
+A Function that is fired when the MenuItem recieves a click event
