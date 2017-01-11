@@ -267,6 +267,16 @@ describe('BrowserWindow module', function () {
     })
   })
 
+  describe('will-navigate event', function () {
+    it('allows the window to be closed from the event listener', (done) => {
+      ipcRenderer.send('close-on-will-navigate', w.id)
+      ipcRenderer.once('closed-on-will-navigate', () => {
+        done()
+      })
+      w.loadURL('file://' + fixtures + '/pages/will-navigate.html')
+    })
+  })
+
   describe('BrowserWindow.show()', function () {
     if (isCI) {
       return
@@ -1247,6 +1257,18 @@ describe('BrowserWindow module', function () {
         assert.equal(w.isResizable(), false)
         w.setResizable(true)
         assert.equal(w.isResizable(), true)
+      })
+
+      it('works for a frameless window', () => {
+        w.destroy()
+        w = new BrowserWindow({show: false, frame: false})
+        assert.equal(w.isResizable(), true)
+
+        if (process.platform === 'win32') {
+          w.destroy()
+          w = new BrowserWindow({show: false, thickFrame: false})
+          assert.equal(w.isResizable(), false)
+        }
       })
     })
 

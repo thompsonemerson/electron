@@ -221,3 +221,27 @@ ipcMain.on('set-client-certificate-option', function (event, skip) {
   })
   event.returnValue = 'done'
 })
+
+ipcMain.on('close-on-will-navigate', (event, id) => {
+  const contents = event.sender
+  const window = BrowserWindow.fromId(id)
+  window.webContents.once('will-navigate', (event, input) => {
+    window.close()
+    contents.send('closed-on-will-navigate')
+  })
+})
+
+ipcMain.on('create-window-with-options-cycle', (event) => {
+  // This can't be done over remote since cycles are already
+  // nulled out at the IPC layer
+  const foo = {}
+  foo.bar = foo
+  foo.baz = {
+    hello: {
+      world: true
+    }
+  }
+  foo.baz2 = foo.baz
+  const window = new BrowserWindow({show: false, foo: foo})
+  event.returnValue = window.id
+})
