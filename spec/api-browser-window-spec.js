@@ -218,6 +218,17 @@ describe('BrowserWindow module', function () {
       w.loadURL('http://127.0.0.1:11111')
     })
 
+    it('should emit did-fail-load event for URL exceeding character limit', function (done) {
+      w.webContents.on('did-fail-load', function (event, code, desc, url, isMainFrame) {
+        assert.equal(desc, 'ERR_INVALID_URL')
+        assert.equal(code, -300)
+        assert.equal(isMainFrame, true)
+        done()
+      })
+      const data = new Buffer(2 * 1024 * 1024).toString('base64')
+      w.loadURL(`data:image/png;base64,${data}`)
+    })
+
     describe('POST navigations', function () {
       afterEach(() => {
         w.webContents.session.webRequest.onBeforeSendHeaders(null)
@@ -236,6 +247,7 @@ describe('BrowserWindow module', function () {
           })
           w.webContents.executeJavaScript(`
             form = document.createElement('form')
+            document.body.appendChild(form)
             form.method = 'POST'
             form.target = '_blank'
             form.submit()
@@ -252,6 +264,7 @@ describe('BrowserWindow module', function () {
           })
           w.webContents.executeJavaScript(`
             form = document.createElement('form')
+            document.body.appendChild(form)
             form.method = 'POST'
             form.target = '_blank'
             form.enctype = 'multipart/form-data'
@@ -510,6 +523,18 @@ describe('BrowserWindow module', function () {
       assert.equal(w.isAlwaysOnTop(), false)
       w.setAlwaysOnTop(true)
       assert.equal(w.isAlwaysOnTop(), true)
+    })
+
+    it('raises an error when relativeLevel is out of bounds', function () {
+      if (process.platform !== 'darwin') return
+
+      assert.throws(function () {
+        w.setAlwaysOnTop(true, '', -2147483644)
+      })
+
+      assert.throws(function () {
+        w.setAlwaysOnTop(true, '', 2147483632)
+      })
     })
   })
 
@@ -776,8 +801,9 @@ describe('BrowserWindow module', function () {
     describe('"node-integration" option', function () {
       it('disables node integration when specified to false', function (done) {
         var preload = path.join(fixtures, 'module', 'send-later.js')
-        ipcMain.once('answer', function (event, test) {
-          assert.equal(test, 'undefined')
+        ipcMain.once('answer', function (event, typeofProcess, typeofBuffer) {
+          assert.equal(typeofProcess, 'undefined')
+          assert.equal(typeofBuffer, 'undefined')
           done()
         })
         w.destroy()
@@ -1417,6 +1443,56 @@ describe('BrowserWindow module', function () {
       })
     })
 
+    describe('kiosk state', function () {
+      // Only implemented on macOS.
+      if (process.platform !== 'darwin') return
+
+      it('can be changed with setKiosk method', function () {
+        w.destroy()
+        w = new BrowserWindow()
+        w.setKiosk(true)
+        assert.equal(w.isKiosk(), true)
+        w.setKiosk(false)
+        assert.equal(w.isKiosk(), false)
+      })
+    })
+
+    describe('fullscreen state', function () {
+      // Only implemented on macOS.
+      if (process.platform !== 'darwin') return
+
+      it('can be changed with setFullScreen method', function (done) {
+        w.destroy()
+        w = new BrowserWindow()
+        w.once('enter-full-screen', () => {
+          assert.equal(w.isFullScreen(), true)
+          w.setFullScreen(false)
+        })
+        w.once('leave-full-screen', () => {
+          assert.equal(w.isFullScreen(), false)
+          done()
+        })
+        w.setFullScreen(true)
+      })
+
+      it('should not be changed by setKiosk method', function (done) {
+        w.destroy()
+        w = new BrowserWindow()
+        w.once('enter-full-screen', () => {
+          assert.equal(w.isFullScreen(), true)
+          w.setKiosk(true)
+          w.setKiosk(false)
+          assert.equal(w.isFullScreen(), true)
+          w.setFullScreen(false)
+        })
+        w.once('leave-full-screen', () => {
+          assert.equal(w.isFullScreen(), false)
+          done()
+        })
+        w.setFullScreen(true)
+      })
+    })
+
     describe('closable state', function () {
       it('can be changed with closable option', function () {
         w.destroy()
@@ -1600,9 +1676,36 @@ describe('BrowserWindow module', function () {
   })
 
   describe('dev tool extensions', function () {
-    describe('BrowserWindow.addDevToolsExtension', function () {
-      let showPanelIntervalId
+    let showPanelTimeoutId
 
+    const showLastDevToolsPanel = () => {
+      w.webContents.once('devtools-opened', function () {
+        const show = function () {
+          if (w == null || w.isDestroyed()) {
+            return
+          }
+          const {devToolsWebContents} = w
+          if (devToolsWebContents == null || devToolsWebContents.isDestroyed()) {
+            return
+          }
+
+          const showLastPanel = function () {
+            const lastPanelId = UI.inspectorView._tabbedPane._tabs.peekLast().id
+            UI.inspectorView.showPanel(lastPanelId)
+          }
+          devToolsWebContents.executeJavaScript(`(${showLastPanel})()`, false, () => {
+            showPanelTimeoutId = setTimeout(show, 100)
+          })
+        }
+        showPanelTimeoutId = setTimeout(show, 100)
+      })
+    }
+
+    afterEach(function () {
+      clearTimeout(showPanelTimeoutId)
+    })
+
+    describe('BrowserWindow.addDevToolsExtension', function () {
       beforeEach(function () {
         BrowserWindow.removeDevToolsExtension('foo')
         assert.equal(BrowserWindow.getDevToolsExtensions().hasOwnProperty('foo'), false)
@@ -1611,25 +1714,9 @@ describe('BrowserWindow module', function () {
         BrowserWindow.addDevToolsExtension(extensionPath)
         assert.equal(BrowserWindow.getDevToolsExtensions().hasOwnProperty('foo'), true)
 
-        w.webContents.on('devtools-opened', function () {
-          showPanelIntervalId = setInterval(function () {
-            if (w && w.devToolsWebContents) {
-              var showLastPanel = function () {
-                var lastPanelId = WebInspector.inspectorView._tabbedPane._tabs.peekLast().id
-                WebInspector.inspectorView.showPanel(lastPanelId)
-              }
-              w.devToolsWebContents.executeJavaScript(`(${showLastPanel})()`)
-            } else {
-              clearInterval(showPanelIntervalId)
-            }
-          }, 100)
-        })
+        showLastDevToolsPanel()
 
         w.loadURL('about:blank')
-      })
-
-      afterEach(function () {
-        clearInterval(showPanelIntervalId)
       })
 
       it('throws errors for missing manifest.json files', function () {
@@ -1697,27 +1784,12 @@ describe('BrowserWindow module', function () {
       BrowserWindow.removeDevToolsExtension('foo')
       BrowserWindow.addDevToolsExtension(extensionPath)
 
-      let showPanelIntervalId = null
-
-      w.webContents.once('devtools-opened', function () {
-        showPanelIntervalId = setInterval(function () {
-          if (w && w.devToolsWebContents) {
-            var showLastPanel = function () {
-              var lastPanelId = WebInspector.inspectorView._tabbedPane._tabs.peekLast().id
-              WebInspector.inspectorView.showPanel(lastPanelId)
-            }
-            w.devToolsWebContents.executeJavaScript(`(${showLastPanel})()`)
-          } else {
-            clearInterval(showPanelIntervalId)
-          }
-        }, 100)
-      })
+      showLastDevToolsPanel()
 
       w.loadURL('about:blank')
       w.webContents.openDevTools({mode: 'bottom'})
 
       ipcMain.once('answer', function (event, message) {
-        clearInterval(showPanelIntervalId)
         assert.equal(message.runtimeId, 'foo')
         done()
       })
@@ -1832,6 +1904,69 @@ describe('BrowserWindow module', function () {
         w.previewFile(__filename)
         w.closeFilePreview()
       })
+    })
+  })
+
+  describe('contextIsolation option', () => {
+    const expectedContextData = {
+      preloadContext: {
+        preloadProperty: 'number',
+        pageProperty: 'undefined',
+        typeofRequire: 'function',
+        typeofProcess: 'object',
+        typeofArrayPush: 'function',
+        typeofFunctionApply: 'function'
+      },
+      pageContext: {
+        preloadProperty: 'undefined',
+        pageProperty: 'string',
+        typeofRequire: 'undefined',
+        typeofProcess: 'undefined',
+        typeofArrayPush: 'number',
+        typeofFunctionApply: 'boolean',
+        typeofPreloadExecuteJavaScriptProperty: 'number',
+        typeofOpenedWindow: 'object',
+        documentHidden: true,
+        documentVisibilityState: 'hidden'
+      }
+    }
+
+    beforeEach(() => {
+      if (w != null) w.destroy()
+      w = new BrowserWindow({
+        show: false,
+        webPreferences: {
+          contextIsolation: true,
+          preload: path.join(fixtures, 'api', 'isolated-preload.js')
+        }
+      })
+    })
+
+    it('separates the page context from the Electron/preload context', (done) => {
+      ipcMain.once('isolated-world', (event, data) => {
+        assert.deepEqual(data, expectedContextData)
+        done()
+      })
+      w.loadURL('file://' + fixtures + '/api/isolated.html')
+    })
+
+    it('recreates the contexts on reload', (done) => {
+      w.webContents.once('did-finish-load', () => {
+        ipcMain.once('isolated-world', (event, data) => {
+          assert.deepEqual(data, expectedContextData)
+          done()
+        })
+        w.webContents.reload()
+      })
+      w.loadURL('file://' + fixtures + '/api/isolated.html')
+    })
+
+    it('enables context isolation on child windows', function (done) {
+      app.once('browser-window-created', function (event, window) {
+        assert.equal(window.webContents.getWebPreferences().contextIsolation, true)
+        done()
+      })
+      w.loadURL('file://' + fixtures + '/pages/window-open.html')
     })
   })
 

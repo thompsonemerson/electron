@@ -12,6 +12,7 @@
 
 #include "base/files/file_path.h"
 #include "base/macros.h"
+#include "native_mate/dictionary.h"
 
 namespace crash_reporter {
 
@@ -21,6 +22,7 @@ class CrashReporter {
   typedef std::pair<int, std::string> UploadReportResult;  // upload-date, id
 
   static CrashReporter* GetInstance();
+  static void StartInstance(const mate::Dictionary& options);
 
   void Start(const std::string& product_name,
              const std::string& company_name,
@@ -35,6 +37,9 @@ class CrashReporter {
 
   virtual void SetUploadToServer(bool upload_to_server);
   virtual bool GetUploadToServer();
+  virtual void SetExtraParameter(const std::string& key,
+                                 const std::string& value);
+  virtual void RemoveExtraParameter(const std::string& key);
 
  protected:
   CrashReporter();

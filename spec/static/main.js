@@ -249,3 +249,69 @@ ipcMain.on('create-window-with-options-cycle', (event) => {
 ipcMain.on('prevent-next-new-window', (event, id) => {
   webContents.fromId(id).once('new-window', event => event.preventDefault())
 })
+
+ipcMain.on('prevent-next-will-attach-webview', (event) => {
+  event.sender.once('will-attach-webview', event => event.preventDefault())
+})
+
+ipcMain.on('disable-node-on-next-will-attach-webview', (event, id) => {
+  event.sender.once('will-attach-webview', (event, webPreferences, params) => {
+    params.src = `file://${path.join(__dirname, '..', 'fixtures', 'pages', 'c.html')}`
+    webPreferences.nodeIntegration = false
+  })
+})
+
+ipcMain.on('try-emit-web-contents-event', (event, id, eventName) => {
+  const consoleWarn = console.warn
+  let warningMessage = null
+  const contents = webContents.fromId(id)
+  const listenerCountBefore = contents.listenerCount(eventName)
+
+  try {
+    console.warn = (message) => {
+      warningMessage = message
+    }
+    contents.emit(eventName, {sender: contents})
+  } finally {
+    console.warn = consoleWarn
+  }
+
+  const listenerCountAfter = contents.listenerCount(eventName)
+
+  event.returnValue = {
+    warningMessage,
+    listenerCountBefore,
+    listenerCountAfter
+  }
+})
+
+ipcMain.on('handle-uncaught-exception', (event, message) => {
+  suspendListeners(process, 'uncaughtException', (error) => {
+    event.returnValue = error.message
+  })
+  fs.readFile(__filename, () => {
+    throw new Error(message)
+  })
+})
+
+ipcMain.on('handle-unhandled-rejection', (event, message) => {
+  suspendListeners(process, 'unhandledRejection', (error) => {
+    event.returnValue = error.message
+  })
+  fs.readFile(__filename, () => {
+    Promise.reject(new Error(message))
+  })
+})
+
+// Suspend listeners until the next event and then restore them
+const suspendListeners = (emitter, eventName, callback) => {
+  const listeners = emitter.listeners(eventName)
+  emitter.removeAllListeners(eventName)
+  emitter.once(eventName, (...args) => {
+    emitter.removeAllListeners(eventName)
+    listeners.forEach((listener) => {
+      emitter.on(eventName, listener)
+    })
+    callback(...args)
+  })
+}

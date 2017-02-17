@@ -85,6 +85,13 @@ describe('ipc module', function () {
       assert.equal(foo.baz(), 123)
     })
 
+    it('includes the length of functions specified as arguments', function () {
+      var a = remote.require(path.join(fixtures, 'module', 'function-with-args.js'))
+      assert.equal(a(function (a, b, c, d, f) {}), 5)
+      assert.equal(a((a) => {}), 1)
+      assert.equal(a((...args) => {}), 0)
+    })
+
     it('handles circular references in arrays and objects', function () {
       var a = remote.require(path.join(fixtures, 'module', 'circular.js'))
 
@@ -493,6 +500,30 @@ describe('ipc module', function () {
       assert.equal(w.listenerCount('test'), 1)
       w.removeListener('test', listener)
       assert.equal(w.listenerCount('test'), 0)
+    })
+
+    it('detaches listeners subscribed to destroyed renderers, and shows a warning', (done) => {
+      w = new BrowserWindow({
+        show: false
+      })
+      w.webContents.once('did-finish-load', () => {
+        w.webContents.once('did-finish-load', () => {
+          const expectedMessage = [
+            'Attempting to call a function in a renderer window that has been closed or released.',
+            'Function provided here: remote-event-handler.html:11:33',
+            'Remote event names: remote-handler, other-remote-handler'
+          ].join('\n')
+          const results = ipcRenderer.sendSync('try-emit-web-contents-event', w.webContents.id, 'remote-handler')
+          assert.deepEqual(results, {
+            warningMessage: expectedMessage,
+            listenerCountBefore: 2,
+            listenerCountAfter: 1
+          })
+          done()
+        })
+        w.webContents.reload()
+      })
+      w.loadURL('file://' + path.join(fixtures, 'api', 'remote-event-handler.html'))
     })
   })
 

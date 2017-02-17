@@ -121,6 +121,7 @@ describe('webContents module', function () {
             w.webContents.once('before-input-event', (event, input) => {
               assert.equal(input.type, opts.type)
               assert.equal(input.key, opts.key)
+              assert.equal(input.code, opts.code)
               assert.equal(input.isAutoRepeat, opts.isAutoRepeat)
               assert.equal(input.shift, opts.shift)
               assert.equal(input.control, opts.control)
@@ -148,6 +149,7 @@ describe('webContents module', function () {
           return testBeforeInput({
             type: 'keyDown',
             key: 'A',
+            code: 'KeyA',
             keyCode: 'a',
             shift: true,
             control: true,
@@ -159,6 +161,7 @@ describe('webContents module', function () {
           return testBeforeInput({
             type: 'keyUp',
             key: '.',
+            code: 'Period',
             keyCode: '.',
             shift: false,
             control: true,
@@ -170,6 +173,7 @@ describe('webContents module', function () {
           return testBeforeInput({
             type: 'keyUp',
             key: '!',
+            code: 'Digit1',
             keyCode: '1',
             shift: true,
             control: false,
@@ -181,6 +185,7 @@ describe('webContents module', function () {
           return testBeforeInput({
             type: 'keyUp',
             key: 'Tab',
+            code: 'Tab',
             keyCode: 'Tab',
             shift: false,
             control: true,
@@ -266,6 +271,55 @@ describe('webContents module', function () {
       })
       w.webContents.sendInputEvent({type: 'keyDown', keyCode: 'Z'})
       w.webContents.sendInputEvent({type: 'char', keyCode: 'Z', modifiers: ['shift', 'ctrl']})
+    })
+  })
+
+  it('supports inserting CSS', function (done) {
+    w.loadURL('about:blank')
+    w.webContents.insertCSS('body { background-repeat: round; }')
+    w.webContents.executeJavaScript('window.getComputedStyle(document.body).getPropertyValue("background-repeat")', (result) => {
+      assert.equal(result, 'round')
+      done()
+    })
+  })
+
+  it('supports inspecting an element in the devtools', function (done) {
+    w.loadURL('about:blank')
+    w.webContents.once('devtools-opened', function () {
+      done()
+    })
+    w.webContents.inspectElement(10, 10)
+  })
+
+  describe('startDrag({file, icon})', () => {
+    it('throws errors for a missing file or a missing/empty icon', () => {
+      assert.throws(() => {
+        w.webContents.startDrag({icon: path.join(__dirname, 'fixtures', 'assets', 'logo.png')})
+      }, /Must specify either 'file' or 'files' option/)
+
+      assert.throws(() => {
+        w.webContents.startDrag({file: __filename})
+      }, /Must specify 'icon' option/)
+
+      if (process.platform === 'darwin') {
+        assert.throws(() => {
+          w.webContents.startDrag({file: __filename, icon: __filename})
+        }, /Must specify non-empty 'icon' option/)
+      }
+    })
+  })
+
+  describe('focus()', function () {
+    describe('when the web contents is hidden', function () {
+      it('does not blur the focused window', function (done) {
+        ipcMain.once('answer', (event, parentFocused, childFocused) => {
+          assert.equal(parentFocused, true)
+          assert.equal(childFocused, false)
+          done()
+        })
+        w.show()
+        w.loadURL('file://' + path.join(__dirname, 'fixtures', 'pages', 'focus-web-contents.html'))
+      })
     })
   })
 })

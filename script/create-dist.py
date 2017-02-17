@@ -9,8 +9,7 @@ import sys
 import stat
 
 from lib.config import LIBCHROMIUMCONTENT_COMMIT, BASE_URL, PLATFORM, \
-                       get_target_arch, get_chromedriver_version, \
-                       get_zip_name
+                       get_target_arch, get_zip_name
 from lib.util import scoped_cwd, rm_rf, get_electron_version, make_zip, \
                      execute, electron_gyp
 
@@ -94,7 +93,7 @@ def main():
 
   create_version()
   create_dist_zip()
-  create_chrome_binary_zip('chromedriver', get_chromedriver_version())
+  create_chrome_binary_zip('chromedriver', ELECTRON_VERSION)
   create_chrome_binary_zip('mksnapshot', ELECTRON_VERSION)
   create_ffmpeg_zip()
   create_symbols_zip()
@@ -132,8 +131,13 @@ def copy_license():
   shutil.copy2(os.path.join(SOURCE_ROOT, 'LICENSE'), DIST_DIR)
 
 def create_api_json_schema():
-  outfile = os.path.join(DIST_DIR, 'electron-api.json')
-  execute(['electron-docs-linter', '--outfile={0}'.format(outfile)])
+  node_bin_dir = os.path.join(SOURCE_ROOT, 'node_modules', '.bin')
+  env = os.environ.copy()
+  env['PATH'] = os.path.pathsep.join([node_bin_dir, env['PATH']])
+  outfile = os.path.relpath(os.path.join(DIST_DIR, 'electron-api.json'))
+  execute(['electron-docs-linter', 'docs', '--outfile={0}'.format(outfile),
+           '--version={}'.format(ELECTRON_VERSION.replace('v', ''))],
+          env=env)
 
 def strip_binaries():
   for binary in TARGET_BINARIES[PLATFORM]:

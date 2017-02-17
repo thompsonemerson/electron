@@ -67,9 +67,11 @@ class NativeWindowMac : public NativeWindow,
   bool IsFullScreenable() override;
   void SetClosable(bool closable) override;
   bool IsClosable() override;
-  void SetAlwaysOnTop(bool top, const std::string& level) override;
+  void SetAlwaysOnTop(bool top, const std::string& level,
+                      int relativeLevel, std::string* error) override;
   bool IsAlwaysOnTop() override;
   void Center() override;
+  void Invalidate() override;
   void SetTitle(const std::string& title) override;
   std::string GetTitle() override;
   void FlashFrame(bool flash) override;
@@ -161,6 +163,8 @@ class NativeWindowMac : public NativeWindow,
   std::vector<DraggableRegion> draggable_regions_;
 
   bool is_kiosk_;
+
+  bool was_fullscreen_;
 
   bool zoom_to_page_width_;
 
